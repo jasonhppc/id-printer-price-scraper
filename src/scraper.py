@@ -66,42 +66,16 @@ class EnhancedPrinterScraper:
     def get_default_websites(self):
         """Default website configurations"""
         return {
-            "bodno.com": {
-                "name": "Bodno",
-                "base_url": "https://bodno.com",
-                "search_url": "https://bodno.com/search?q={query}",
-                "currency": "USD",
-                "selectors": {
-                    "product_container": ".product-item, .grid-product__content",
-                    "title": "h3 a, .grid-product__title, .product-title",
-                    "price": ".price, .money, .product-price",
-                    "link": "h3 a, .grid-product__link"
-                },
-                "enabled": True
-            },
-            "officeworks.com.au": {
-                "name": "Officeworks Australia",
-                "base_url": "https://www.officeworks.com.au",
-                "search_url": "https://www.officeworks.com.au/shop/search?q={query}&view=grid&page=1&sortBy=bestmatch",
+            "amazon.com.au": {
+                "name": "Amazon Australia",
+                "base_url": "https://www.amazon.com.au",
+                "search_url": "https://www.amazon.com.au/s?k={query}",
                 "currency": "AUD",
                 "selectors": {
-                    "product_container": ".search-results-product-item, .product-tile",
-                    "title": ".search-results-product-item__name, .product-tile__name",
-                    "price": ".search-results-product-item__price, .price",
-                    "link": ".search-results-product-item__link, .product-tile__link"
-                },
-                "enabled": True
-            },
-            "jbhifi.com.au": {
-                "name": "JB Hi-Fi Australia",
-                "base_url": "https://www.jbhifi.com.au",
-                "search_url": "https://www.jbhifi.com.au/search?page=1&query={query}",
-                "currency": "AUD",
-                "selectors": {
-                    "product_container": ".ek-product-card, .product-item",
-                    "title": ".ek-product-card__title, .product-title",
-                    "price": ".ek-product-card__price, .price",
-                    "link": ".ek-product-card__link, .product-link"
+                    "product_container": "[data-component-type='s-search-result']",
+                    "title": "h2 a span",
+                    "price": ".a-price-whole",
+                    "link": "h2 a"
                 },
                 "enabled": True
             }
@@ -160,90 +134,171 @@ class EnhancedPrinterScraper:
                     logging.error(f"All attempts failed for {url}")
                     return None
     
+    def debug_page_content(self, soup, website_key, printer_model):
+        """Debug function to analyze page content"""
+        logging.info(f"DEBUG: Analyzing page content for {website_key} - {printer_model}")
+        
+        # Look for any elements that might contain products
+        potential_products = soup.find_all(['div', 'article', 'li'], class_=True)
+        product_count = 0
+        
+        for elem in potential_products[:10]:  # Check first 10 elements
+            class_names = ' '.join(elem.get('class', []))
+            if any(keyword in class_names.lower() for keyword in ['product', 'item', 'result', 'card']):
+                product_count += 1
+                text_content = elem.get_text(strip=True)[:100]  # First 100 chars
+                logging.info(f"DEBUG: Found potential product element: {class_names} - {text_content}")
+        
+        logging.info(f"DEBUG: Found {product_count} potential product elements")
+        
+        # Look for price-like text
+        all_text = soup.get_text()
+        price_patterns = re.findall(r'[\$£€][\d,]+\.?\d*', all_text)
+        if price_patterns:
+            logging.info(f"DEBUG: Found price-like patterns: {price_patterns[:5]}")
+        
+        return product_count > 0
+    
     def search_website(self, website_key, website_config, printer_model):
-        """Search a specific website for printer prices"""
+        """Search a specific website for printer prices with enhanced debugging"""
         if not website_config.get('enabled', True):
             return
         
         try:
-            # Format search query
-            query = printer_model.replace(' ', '+')
-            search_url = website_config['search_url'].format(query=query)
+            # Format search query - try multiple query variations
+            queries = [
+                printer_model.replace(' ', '+'),
+                printer_model.replace(' ', '%20'),
+                '+'.join(printer_model.split()),
+                printer_model.split()[0],  # Just brand/first word
+                'card+printer'  # Generic fallback
+            ]
             
-            logging.info(f"Searching {website_config['name']} for {printer_model}")
-            
-            response = self.safe_request(search_url)
-            if not response:
-                return
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            selectors = website_config['selectors']
-            
-            # Find product containers
-            products = soup.select(selectors['product_container'])
-            
-            found_results = 0
-            for product in products[:5]:  # Check first 5 results
-                try:
-                    # Extract title
-                    title_elem = product.select_one(selectors['title'])
-                    if not title_elem:
-                        continue
-                    
-                    title = title_elem.get_text(strip=True)
-                    
-                    # Check if this product matches our search
-                    if not self.is_relevant_product(title, printer_model):
-                        continue
-                    
-                    # Extract price
-                    price_elem = product.select_one(selectors['price'])
-                    if not price_elem:
-                        continue
-                    
-                    price_text = price_elem.get_text(strip=True)
-                    price = self.clean_price(price_text)
-                    
-                    if not price:
-                        continue
-                    
-                    # Convert currency if needed
-                    currency = website_config.get('currency', 'AUD')
-                    price_aud = self.currency_converter.convert_to_aud(price, currency)
-                    
-                    # Extract product link
-                    link_elem = product.select_one(selectors.get('link', 'a'))
-                    product_url = search_url  # Default to search URL
-                    if link_elem and link_elem.get('href'):
-                        href = link_elem.get('href')
-                        product_url = urljoin(website_config['base_url'], href)
-                    
-                    # Store result with required columns
-                    result = {
-                        'model': printer_model,
-                        'supplier': website_config['name'],
-                        'website': website_key,
-                        'title': title,
-                        'price_original': price,
-                        'currency_original': currency,
-                        'price_aud': price_aud,
-                        'url': product_url,
-                        'search_url': search_url,
-                        'scraped_at': datetime.now().isoformat(),
-                        'status': 'success'
-                    }
-                    
-                    self.results.append(result)
-                    found_results += 1
-                    
-                    logging.info(f"Found: {title} - ${price_aud:.2f} AUD")
-                    
-                except Exception as e:
-                    logging.warning(f"Error processing product on {website_key}: {e}")
+            for query_idx, query in enumerate(queries):
+                search_url = website_config['search_url'].format(query=query)
+                
+                logging.info(f"Searching {website_config['name']} for {printer_model} (attempt {query_idx + 1})")
+                logging.info(f"DEBUG: Search URL: {search_url}")
+                
+                response = self.safe_request(search_url)
+                if not response:
                     continue
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                selectors = website_config['selectors']
+                
+                # Debug page content
+                has_products = self.debug_page_content(soup, website_key, printer_model)
+                
+                # Try multiple selector combinations
+                selector_combinations = [
+                    selectors['product_container'],
+                    selectors['product_container'].split(',')[0].strip(),  # Try first selector only
+                    'div[class*="product"], div[class*="item"], div[class*="result"]',  # Generic fallback
+                    '.product, .item, .result, .card'  # Simple class names
+                ]
+                
+                found_results = 0
+                for selector_idx, container_selector in enumerate(selector_combinations):
+                    products = soup.select(container_selector)
+                    logging.info(f"DEBUG: Selector '{container_selector}' found {len(products)} elements")
+                    
+                    if not products:
+                        continue
+                    
+                    for product in products[:3]:  # Check first 3 results
+                        try:
+                            # Try multiple title selectors
+                            title = None
+                            title_selectors = selectors['title'].split(',')
+                            for title_sel in title_selectors:
+                                title_elem = product.select_one(title_sel.strip())
+                                if title_elem:
+                                    title = title_elem.get_text(strip=True)
+                                    break
+                            
+                            if not title:
+                                # Fallback: get any text content
+                                title = product.get_text(strip=True)[:100]
+                            
+                            logging.info(f"DEBUG: Found title: {title}")
+                            
+                            # Check if this product is relevant (more lenient matching)
+                            if not self.is_relevant_product(title, printer_model, lenient=True):
+                                continue
+                            
+                            # Try multiple price selectors
+                            price = None
+                            price_selectors = selectors['price'].split(',')
+                            for price_sel in price_selectors:
+                                price_elem = product.select_one(price_sel.strip())
+                                if price_elem:
+                                    price_text = price_elem.get_text(strip=True)
+                                    price = self.clean_price(price_text)
+                                    if price:
+                                        logging.info(f"DEBUG: Found price: {price_text} -> {price}")
+                                        break
+                            
+                            if not price:
+                                # Look for any price-like text in the product element
+                                product_text = product.get_text()
+                                price_matches = re.findall(r'[\$£€]?[\d,]+\.?\d*', product_text)
+                                for match in price_matches:
+                                    price = self.clean_price(match)
+                                    if price and price > 10:  # Reasonable minimum price
+                                        logging.info(f"DEBUG: Found fallback price: {match} -> {price}")
+                                        break
+                            
+                            if not price:
+                                logging.info(f"DEBUG: No price found for: {title}")
+                                continue
+                            
+                            # Convert currency if needed
+                            currency = website_config.get('currency', 'AUD')
+                            price_aud = self.currency_converter.convert_to_aud(price, currency)
+                            
+                            # Extract product link
+                            link_elem = product.select_one(selectors.get('link', 'a'))
+                            product_url = search_url  # Default to search URL
+                            if link_elem and link_elem.get('href'):
+                                href = link_elem.get('href')
+                                product_url = urljoin(website_config['base_url'], href)
+                            
+                            # Store result with required columns
+                            result = {
+                                'model': printer_model,
+                                'supplier': website_config['name'],
+                                'website': website_key,
+                                'title': title,
+                                'price_original': price,
+                                'currency_original': currency,
+                                'price_aud': price_aud,
+                                'url': product_url,
+                                'search_url': search_url,
+                                'scraped_at': datetime.now().isoformat(),
+                                'status': 'success'
+                            }
+                            
+                            self.results.append(result)
+                            found_results += 1
+                            
+                            logging.info(f"SUCCESS: {title} - ${price_aud:.2f} AUD")
+                            
+                        except Exception as e:
+                            logging.warning(f"Error processing product on {website_key}: {e}")
+                            continue
+                    
+                    if found_results > 0:
+                        break  # Success with this selector combination
+                
+                if found_results > 0:
+                    break  # Success with this query
+                
+                # Try next query variation
+                time.sleep(random.uniform(1, 2))
             
             if found_results == 0:
-                logging.info(f"No relevant products found on {website_config['name']}")
+                logging.info(f"No relevant products found on {website_config['name']} for {printer_model}")
             
             # Respectful delay between requests
             time.sleep(random.uniform(CRAWL_DELAY_MIN, CRAWL_DELAY_MAX))
@@ -251,35 +306,21 @@ class EnhancedPrinterScraper:
         except Exception as e:
             logging.error(f"Error searching {website_key}: {e}")
     
-    def is_relevant_product(self, title, printer_model):
+    def is_relevant_product(self, title, printer_model, lenient=False):
         """Check if product title is relevant to our search"""
         title_lower = title.lower()
         model_words = printer_model.lower().split()
         
-        # Check if most key words from model name appear in title
-        matches = sum(1 for word in model_words if word in title_lower)
-        return matches >= len(model_words) * 0.6  # At least 60% of words match
-    
-    def scrape_all_prices(self):
-        """Main scraping method"""
-        logging.info("Starting enhanced price scraper...")
-        logging.info(f"Exchange rate: 1 USD = {self.currency_converter.get_usd_to_aud_rate():.4f} AUD")
-        
-        total_searches = len([w for w in self.websites.values() if w.get('enabled', True)]) * len(self.target_printers)
-        current_search = 0
-        
-        for printer in self.target_printers:
-            logging.info(f"\n{'='*50}")
-            logging.info(f"Searching for: {printer}")
-            logging.info(f"{'='*50}")
-            
-            for website_key, website_config in self.websites.items():
-                if website_config.get('enabled', True):
-                    current_search += 1
-                    logging.info(f"Progress: {current_search}/{total_searches}")
-                    self.search_website(website_key, website_config, printer)
-        
-        return self.results
+        if lenient:
+            # More lenient matching - look for key terms
+            key_terms = ['printer', 'card', 'id', 'badge', 'fargo', 'evolis', 'zebra', 'magicard', 'entrust']
+            has_key_term = any(term in title_lower for term in key_terms)
+            has_model_word = any(word in title_lower for word in model_words)
+            return has_key_term and has_model_word
+        else:
+            # Check if most key words from model name appear in title
+            matches = sum(1 for word in model_words if word in title_lower)
+            return matches >= len(model_words) * 0.6  # At least 60% of words match
     
     def extract_brand_from_model(self, model):
         """Extract brand/manufacturer from model name"""
@@ -388,30 +429,41 @@ class EnhancedPrinterScraper:
             'unique_models': df['model'].nunique(),
             'unique_suppliers': df['supplier'].nunique(),
             'price_stats': {
-                'min_price': float(df['price_aud'].min()),
-                'max_price': float(df['price_aud'].max()),
-                'avg_price': float(df['price_aud'].mean()),
-                'median_price': float(df['price_aud'].median())
-            },
-            'by_model': {}
-        }
-        
-        # Per-model statistics
-        for model in df['model'].unique():
-            model_df = df[df['model'] == model]
-            summary['by_model'][model] = {
-                'count': len(model_df),
-                'min_price': float(model_df['price_aud'].min()),
-                'max_price': float(model_df['price_aud'].max()),
-                'avg_price': float(model_df['price_aud'].mean()),
-                'suppliers': model_df['supplier'].tolist()
+                'min_price': float(df['price'].str.replace('$', '').str.replace(' AUD', '').astype(float).min()),
+                'max_price': float(df['price'].str.replace('$', '').str.replace(' AUD', '').astype(float).max()),
+                'avg_price': float(df['price'].str.replace('$', '').str.replace(' AUD', '').astype(float).mean()),
             }
+        }
         
         # Save summary
         with open('../data/prices/latest_summary.json', 'w') as f:
             json.dump(summary, f, indent=2)
         
         logging.info("Summary statistics generated")
+
+    def scrape_all_prices(self):
+        """Main scraping method"""
+        logging.info("Starting enhanced price scraper with debug mode...")
+        logging.info(f"Exchange rate: 1 USD = {self.currency_converter.get_usd_to_aud_rate():.4f} AUD")
+        
+        # Use a smaller, more focused list for better results
+        focused_printers = ["card printer", "ID card printer", "Fargo DTC1250e", "Zebra ZC300"]
+        
+        total_searches = len([w for w in self.websites.values() if w.get('enabled', True)]) * len(focused_printers)
+        current_search = 0
+        
+        for printer in focused_printers:
+            logging.info(f"\n{'='*50}")
+            logging.info(f"Searching for: {printer}")
+            logging.info(f"{'='*50}")
+            
+            for website_key, website_config in self.websites.items():
+                if website_config.get('enabled', True):
+                    current_search += 1
+                    logging.info(f"Progress: {current_search}/{total_searches}")
+                    self.search_website(website_key, website_config, printer)
+        
+        return self.results
 
 if __name__ == "__main__":
     scraper = EnhancedPrinterScraper()
@@ -422,7 +474,7 @@ if __name__ == "__main__":
         logging.info(f"Scraping completed successfully. {len(results)} results found.")
         
         # Print formatted table for GitHub Actions logs
-        df = pd.DataFrame(self.format_output_data())
+        df = pd.DataFrame(scraper.format_output_data())
         print("\n" + "="*80)
         print("PRICE COMPARISON TABLE")
         print("="*80)
@@ -449,5 +501,5 @@ if __name__ == "__main__":
         
         sys.exit(0)
     else:
-        logging.error("No results found!")
+        logging.error("No results found! Check debug logs above for details.")
         sys.exit(1)
