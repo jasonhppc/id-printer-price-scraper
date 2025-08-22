@@ -1,0 +1,59 @@
+name: Australian Printer Price Scraper
+
+on:
+  # Run daily at 9 AM AEST
+  schedule:
+    - cron: '0 23 * * *'  # 23:00 UTC = 9:00 AEST
+  
+  # Allow manual triggering
+  workflow_dispatch:
+  
+  # Run on push to main branch (for testing)
+  push:
+    branches: [ main ]
+
+jobs:
+  scrape-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r src/requirements.txt
+        
+    - name: Run price scraper
+      run: |
+        cd src
+        python scraper.py
+        
+    - name: Commit and push results
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/prices/
+        git commit -m "Update prices $(date +'%Y-%m-%d %H:%M')" || exit 0
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload results as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: price-data
+        path: data/prices/
+        retention-days: 30
