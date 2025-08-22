@@ -1,0 +1,92 @@
+{
+  "target_printers": [
+    "Fargo DTC1250e",
+    "Evolis Primacy 2",
+    "Zebra ZC300",
+    "Magicard 600",
+    "Entrust Sigma DS2",
+    "Zebra ZC100",
+    "Evolis Badgy200",
+    "Magicard Pronto 100"
+  ],
+  "websites": {
+    "bodno.com": {
+      "name": "Bodno",
+      "base_url": "https://bodno.com",
+      "search_url": "https://bodno.com/search?q={query}",
+      "currency": "USD",
+      "selectors": {
+        "product_container": ".product-item, .grid-product__content",
+        "title": "h3 a, .grid-product__title, .product-title",
+        "price": ".price, .money, .product-price",
+        "link": "h3 a, .grid-product__link"
+      },
+      "enabled": true
+    },
+    "officeworks.com.au": {
+      "name": "Officeworks Australia", 
+      "base_url": "https://www.officeworks.com.au",
+      "search_url": "https://www.officeworks.com.au/shop/search?q={query}&view=grid&page=1&sortBy=bestmatch",
+      "currency": "AUD",
+      "selectors": {
+        "product_container": ".search-results-product-item, .product-tile",
+        "title": ".search-results-product-item__name, .product-tile__name",
+        "price": ".search-results-product-item__price, .price",
+        "link": ".search-results-product-item__link, .product-tile__link"
+      },
+      "enabled": true
+    },
+    "jbhifi.com.au": {
+      "name": "JB Hi-Fi Australia",
+      "base_url": "https://www.jbhifi.com.au", 
+      "search_url": "https://www.jbhifi.com.au/search?page=1&query={query}",
+      "currency": "AUD",
+      "selectors": {
+        "product_container": ".ek-product-card, .product-item",
+        "title": ".ek-product-card__title, .product-title", 
+        "price": ".ek-product-card__price, .price",
+        "link": ".ek-product-card__link, .product-link"
+      },
+      "enabled": true
+    },
+    "harveynorman.com.au": {
+      "name": "Harvey Norman Australia",
+      "base_url": "https://www.harveynorman.com.au",
+      "search_url": "https://www.harveynorman.com.au/catalogsearch/result/?q={query}",
+      "currency": "AUD", 
+      "selectors": {
+        "product_container": ".product-item, .product-tile",
+        "title": ".product-item-link, .product-title",
+        "price": ".price, .regular-price", 
+        "link": ".product-item-link, .product-link"
+      },
+      "enabled": true
+    },
+    "idcardgroup.com": {
+      "name": "ID Card Group (US)",
+      "base_url": "https://www.idcardgroup.com",
+      "search_url": "https://www.idcardgroup.com/catalogsearch/result/?q={query}",
+      "currency": "USD",
+      "selectors": {
+        "product_container": ".product-item, .item",
+        "title": ".product-item-link, .product-name",
+        "price": ".price, .regular-price",
+        "link": ".product-item-link"
+      },
+      "enabled": true
+    },
+    "easybadges.com": {
+      "name": "Easy Badges (US)", 
+      "base_url": "https://easybadges.com",
+      "search_url": "https://easybadges.com/?s={query}&post_type=product",
+      "currency": "USD",
+      "selectors": {
+        "product_container": ".product, .woocommerce-LoopProduct-link",
+        "title": ".woocommerce-loop-product__title, h2",
+        "price": ".price, .amount",
+        "link": ".woocommerce-LoopProduct-link"
+      }, 
+      "enabled": true
+    }
+  }
+}
