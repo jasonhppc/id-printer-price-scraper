@@ -1,101 +1,89 @@
-{
-  "target_printers": [
+import os
+
+# GitHub Actions environment detection
+IS_GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS') == 'true'
+
+# Scraping settings optimized for Australian sites
+CRAWL_DELAY_MIN = 3 if IS_GITHUB_ACTIONS else 2
+CRAWL_DELAY_MAX = 6 if IS_GITHUB_ACTIONS else 4
+MAX_RETRIES = 3
+REQUEST_TIMEOUT = 20  # Longer timeout for Australian sites
+
+# Target printer models - focused on IDP, HID, Magicard, Entrust
+DEFAULT_PRINTERS = [
+    # IDP Models
     "IDP Smart 30S",
     "IDP Smart 50S", 
     "IDP Smart 70S",
+    
+    # HID Fargo Models  
     "HID Fargo DTC1250e",
     "HID Fargo DTC4250e",
     "HID Fargo DTC4500e",
     "HID Fargo HDP5000",
+    
+    # Magicard Models
     "Magicard 300",
     "Magicard 600", 
     "Magicard Pronto 100",
     "Magicard Rio Pro",
+    
+    # Entrust Models
     "Entrust Sigma DS2",
     "Entrust Sigma DS3",
+    
+    # Generic searches for broader coverage
     "card printer",
     "ID card printer",
     "plastic card printer",
     "badge printer"
-  ],
-  "websites": {
-    "idwarehouse.com.au": {
-      "name": "ID Warehouse Australia",
-      "base_url": "https://www.idwarehouse.com.au",
-      "search_url": "https://www.idwarehouse.com.au/search?q={query}",
-      "currency": "AUD",
-      "selectors": {
-        "product_container": ".product-item, .product, .grid-item, .search-result, .product-card",
-        "title": ".product-title, .product-name, h3, h2, .product-item-name",
-        "price": ".price, .product-price, .amount, .cost, [class*='price']",
-        "link": "a, .product-link, .product-item-link"
-      },
-      "enabled": true
-    },
-    "idsupplies.com.au": {
-      "name": "ID Supplies Australia",
-      "base_url": "https://www.idsupplies.com.au",
-      "search_url": "https://www.idsupplies.com.au/search?q={query}",
-      "currency": "AUD",
-      "selectors": {
-        "product_container": ".product-item, .product, .grid-item, .woocommerce .product",
-        "title": ".woocommerce-loop-product__title, .product-title, h3, h2",
-        "price": ".woocommerce-Price-amount, .price, .amount, .cost",
-        "link": ".woocommerce-LoopProduct-link, a"
-      },
-      "enabled": true
-    },
-    "unicard.com.au": {
-      "name": "Unicard Australia",
-      "base_url": "https://www.unicard.com.au",
-      "search_url": "https://www.unicard.com.au/search?q={query}",
-      "currency": "AUD",
-      "selectors": {
-        "product_container": ".product-item, .product, .grid-item, .item",
-        "title": ".product-title, .product-name, h3, h2, .item-title",
-        "price": ".price, .product-price, .amount, .cost",
-        "link": "a, .product-link"
-      },
-      "enabled": true
-    },
-    "interactcard.com.au": {
-      "name": "Interact Card Australia", 
-      "base_url": "https://www.interactcard.com.au",
-      "search_url": "https://www.interactcard.com.au/search?q={query}",
-      "currency": "AUD",
-      "selectors": {
-        "product_container": ".product-item, .product, .grid-item, .catalog-item",
-        "title": ".product-title, .product-name, h3, h2, .catalog-title",
-        "price": ".price, .product-price, .amount, .cost",
-        "link": "a, .product-link, .catalog-link"
-      },
-      "enabled": true
-    },
-    "idcardprinters.com.au": {
-      "name": "ID Card Printers Australia",
-      "base_url": "https://www.idcardprinters.com.au", 
-      "search_url": "https://www.idcardprinters.com.au/search?q={query}",
-      "currency": "AUD",
-      "selectors": {
-        "product_container": ".product-item, .product, .grid-item, .product-card, .item",
-        "title": ".product-title, .product-name, h3, h2, .card-title",
-        "price": ".price, .product-price, .amount, .cost, .price-current",
-        "link": "a, .product-link, .card-link"
-      },
-      "enabled": true
-    },
-    "amazon.com.au": {
-      "name": "Amazon Australia",
-      "base_url": "https://www.amazon.com.au",
-      "search_url": "https://www.amazon.com.au/s?k={query}&ref=nb_sb_noss",
-      "currency": "AUD", 
-      "selectors": {
-        "product_container": "[data-component-type='s-search-result'], .s-result-item",
-        "title": "h2 a span, .a-size-medium, .a-size-base-plus, .a-link-normal",
-        "price": ".a-price-whole, .a-price .a-offscreen, .a-price-range, .a-price",
-        "link": "h2 a, .a-link-normal"
-      },
-      "enabled": true
-    }
-  }
+]
+
+# Output settings
+SAVE_HISTORICAL = True
+SAVE_JSON = True
+SAVE_CSV = True
+GENERATE_SUMMARY = True
+
+# Currency settings - all Australian suppliers
+DEFAULT_CURRENCY = 'AUD'
+SUPPORTED_CURRENCIES = ['AUD', 'USD']
+
+# Brand mapping for Australian market
+AUSTRALIAN_BRANDS = {
+    'IDP': ['IDP', 'Smart'],
+    'HID': ['HID', 'Fargo', 'DTC', 'HDP'],
+    'Magicard': ['Magicard', 'Rio', 'Pronto'],
+    'Entrust': ['Entrust', 'Datacard', 'Sigma']
 }
+
+# Australian supplier focus
+PRIORITY_SUPPLIERS = [
+    'idwarehouse.com.au',
+    'idsupplies.com.au', 
+    'unicard.com.au',
+    'interactcard.com.au',
+    'idcardprinters.com.au'
+]
+
+# Notification settings
+SLACK_WEBHOOK = os.getenv('SLACK_WEBHOOK_URL')
+EMAIL_NOTIFICATIONS = os.getenv('EMAIL_NOTIFICATIONS', 'false').lower() == 'true'
+
+# Debug settings
+DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
+VERBOSE_LOGGING = IS_GITHUB_ACTIONS or DEBUG_MODE
+
+# Price validation settings for Australian market
+MIN_REASONABLE_PRICE = 100   # Minimum AUD for card printers
+MAX_REASONABLE_PRICE = 15000 # Maximum AUD for card printers
+
+# Search optimization for Australian sites
+AUSTRALIAN_SEARCH_TERMS = [
+    'card printer',
+    'ID card printer', 
+    'plastic card printer',
+    'badge printer',
+    'photo ID printer',
+    'PVC card printer'
+]
