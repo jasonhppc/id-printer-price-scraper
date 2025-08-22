@@ -2,15 +2,15 @@ name: Australian Printer Price Scraper
 
 on:
   # Run daily at 9 AM AEST (23:00 UTC)
-  schedule:
-    - cron: '0 23 * * *'
+  # schedule:
+  #  - cron: '0 23 * * *'
   
   # Allow manual triggering
   workflow_dispatch:
   
   # Run on push to main branch (for testing)
-  push:
-    branches: [ main ]
+  # push:
+  #  branches: [ main ]
 
 jobs:
   scrape-prices:
